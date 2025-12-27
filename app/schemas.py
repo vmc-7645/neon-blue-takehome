@@ -34,11 +34,21 @@ class ExperimentCreate(BaseModel):
 
         return v
 
+class EventCreate(BaseModel):
+    experiment_id: UUID
+    user_id: str = Field(min_length=1, max_length=128)
+    type: str = Field(min_length=1, max_length=64)
+    timestamp: datetime
+    properties: Dict[str, Any] = Field(default_factory=dict)
 
 class VariantOut(BaseModel):
     id: UUID
     key: str
-    allocation_percent: int
+
+    # ORM field is traffic_allocation
+    allocation_percent: int = Field(alias="traffic_allocation")
+
+    # ORM field is meta (DB column name "metadata")
     metadata: Dict[str, Any] = Field(alias="meta")
 
     class Config:
@@ -63,3 +73,49 @@ class AssignmentOut(BaseModel):
     variant_id: UUID
     variant_key: str
     assigned_at: datetime
+
+
+class ResultsQueryOut(BaseModel):
+    start: Optional[datetime] = None
+    end: Optional[datetime] = None
+    event_type: Optional[str] = None
+    group_by: str = "variant"  # "variant" or "day"
+    metric: str = "conversions"  # "conversions" | "events" | "unique_users"
+
+
+class VariantResultsRow(BaseModel):
+    variant_id: UUID
+    variant_key: str
+    assignments: int
+    unique_users: int
+    events: int
+    conversions: int
+    conversion_rate: float
+
+
+class TimeBucketRow(BaseModel):
+    bucket_start: datetime
+    bucket_end: datetime
+    per_variant: Dict[str, VariantResultsRow]
+
+
+class ExperimentResultsOut(BaseModel):
+    experiment_id: UUID
+    generated_at: datetime
+    query: ResultsQueryOut
+    totals: Dict[str, VariantResultsRow]  # key -> variant_key, plus "__overall__"
+    time_series: Optional[List[TimeBucketRow]] = None
+    diagnostics: Dict[str, Any] = Field(default_factory=dict)
+    definitions: Dict[str, str] = Field(default_factory=dict)
+
+class EventOut(BaseModel):
+    id: UUID
+    experiment_id: UUID
+    user_id: str
+    type: str
+    timestamp: datetime
+    properties: Dict[str, Any]
+
+    class Config:
+        from_attributes = True
+
