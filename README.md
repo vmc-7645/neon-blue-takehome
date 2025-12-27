@@ -218,7 +218,3 @@ Would include:
 - All core constraints in the prompt are met
 - Code is intentionally straightforward and readable
 - Dockerized for 1-command setup
-
-$exp="00010002000300040001000200030004"
-curl.exe -s -H "Authorization: Bearer dev-token-1" http://localhost:8000/experiments/$exp/assignment/user123
-curl.exe -s -H "Authorization: Bearer dev-token-1" http://localhost:8000/experiments/$exp/assignment/user123
