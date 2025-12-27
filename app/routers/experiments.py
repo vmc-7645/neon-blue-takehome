@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from uuid import UUID
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select
@@ -10,8 +11,9 @@ from sqlalchemy.orm import aliased
 
 from app.db import get_db
 from app.models import Experiment, Variant, Assignment
-from app.schemas import ExperimentCreate, ExperimentOut, AssignmentOut
+from app.schemas import ExperimentCreate, ExperimentOut, AssignmentOut, ExperimentResultsOut
 from app.services.assignment import get_or_create_assignment
+from app.services.results import ResultsQuery, get_experiment_results
 
 router = APIRouter(prefix="/experiments", tags=["experiments"])
 
@@ -81,4 +83,17 @@ def get_assignment(experiment_id: UUID, user_id: str, db: Session = Depends(get_
         variant_id=a.variant_id,
         variant_key=v.key if v else "unknown",
         assigned_at=a.assigned_at,
+    )
+
+
+@router.get("/{experiment_id}/results")
+def experiment_results(
+    experiment_id: UUID,
+    event_type: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    return get_experiment_results(
+        db=db,
+        experiment_id=experiment_id,
+        event_type=event_type,
     )
