@@ -1,220 +1,242 @@
-# A/B Testing API
+# Experimentation API
 
-A simplified A/B testing API demonstrating experiment creation, deterministic user assignment, event tracking, and results aggregation using FastAPI, PostgreSQL, and SQLAlchemy.
+A lightweight experimentation (A/B testing) API built with FastAPI, PostgreSQL, and SQLAlchemy, designed to demonstrate core experimentation concepts: experiment lifecycle management, idempotent user assignment, event attribution, and results analysis.
 
-This project focuses on correctness, clarity, and extensibility rather than feature sprawl.
-
-## Features
-
-- Create experiments with multiple variants and traffic allocation
-- Deterministic, idempotent user assignment per experiment
-- Persistent assignment storage
-- Event ingestion with flexible JSON properties
-- PostgreSQL-backed data model with indexes
-- Bearer token authentication on all endpoints
-- Dockerized local development setup
-- Alembic migrations
-- Clean separation of routers, services, and models
-
-## Tech Stack
-
-- Python 3.12
-- FastAPI
-- PostgreSQL 16
-- SQLAlchemy 2.0
-- Alembic
-- Docker + Docker Compose
-
-## Project Structure
-
-```
-.
-├── app/
-│   ├── main.py              # FastAPI app + router wiring
-│   ├── config.py            # Environment config
-│   ├── auth.py              # Bearer token auth
-│   ├── db.py                # SQLAlchemy session + Base
-│   ├── models.py            # ORM models
-│   ├── schemas.py           # Pydantic schemas
-│   ├── routers/
-│   │   └── experiments.py  # Experiment + assignment endpoints
-│   └── services/
-│       └── assignment.py   # Deterministic assignment logic
-├── alembic/
-│   └── versions/            # DB migrations
-├── tests/                   # (optional) tests
-├── docker-compose.yml
-├── Dockerfile
-├── requirements.txt
-└── README.md
-```
-
-## Authentication
-
-All endpoints require a Bearer token.
-
-Tokens are configured via environment variable:
-
-```bash
-API_TOKENS=dev-token-1,dev-token-2
-```
-
-Requests must include:
-
-```
-Authorization: Bearer dev-token-1
-```
-
-Invalid or missing tokens return `401 Unauthorized`.
-
-## Running Locally (Docker)
+## Quick Start
 
 ### Prerequisites
+- Docker
+- Docker Compose
 
-- Docker Desktop (Linux containers / WSL2)
-
-### Start services
-
+### Start the service
 ```bash
 docker compose up -d --build
 ```
 
-### Verify API health
+### Verify health
+```bash
+curl.exe -H "Authorization: Bearer dev-token-1" http://localhost:8000/health
+```
+
+## Example Usage
+
+You can explore the API in your browser via:
+
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+### Demo Scripts
+
+This repository includes scripts that demonstrate all required behaviors:
+- Create an experiment with variants
+- Get idempotent user assignments
+- Record events with proper attribution
+- Fetch and analyze results
+
+#### PowerShell (Windows)
+
+```powershell
+# Run the demo script
+powershell -ExecutionPolicy Bypass -File .\scripts\demo.ps1
+
+# Optional overrides
+$env:BASE_URL="http://localhost:8000"
+$env:API_TOKEN="dev-token-1"
+powershell -ExecutionPolicy Bypass -File .\scripts\demo.ps1
+```
+
+#### Bash (Linux/Mac/WSL)
 
 ```bash
-curl -H "Authorization: Bearer dev-token-1" http://localhost:8000/health
+# Make script executable and run
+chmod +x scripts/demo.sh
+./scripts/demo.sh
+
+# Optional overrides
+BASE_URL="http://localhost:8000" API_TOKEN="dev-token-1" ./scripts/demo.sh
 ```
 
-Expected response:
+## Features
 
-```json
-{"ok": true}
-```
+- **Idempotent assignment**: A user will always receive the same variant for a given experiment
+- **Traffic allocation support**: Variants support configurable percentage-based allocation
+- **Event attribution correctness**: Only events occurring after a user's assignment timestamp are counted
+- **Experiment lifecycle management**: Experiments can be stopped to freeze new assignments while preserving existing ones
+- **Lightweight caching**: A small in-memory TTL cache reduces repeat database reads for assignments
+- **Production-friendly schema**: Indexed PostgreSQL schema with Alembic migrations
 
-## Database Migrations
+### Documentation
 
-Alembic is fully configured.
+This service uses FastAPI, which automatically generates interactive API documentation from type hints and request/response models.
 
-### Generate migration (already done)
+Once the service is running, documentation is available at:
 
-```bash
-docker compose exec api alembic revision --autogenerate -m "init"
-```
+- Swagger UI: http://localhost:8000/docs
+- ReDoc (read-only): http://localhost:8000/redoc
 
-### Apply migration
+These pages act as the primary API reference, showing:
+- Endpoint descriptions
+- Required authentication
+- Request and response schemas
+- Example payloads
 
-```bash
-docker compose exec api alembic upgrade head
-```
-
-### Verify tables
-
-```bash
-docker compose exec db psql -U ab -d ab -c "\dt"
-```
-
-## API Usage Examples
+## API Endpoints
 
 ### Create Experiment
-
 `POST /experiments`
 
+Creates a new experiment with variants.
+
+**Request**
 ```bash
-curl -H "Authorization: Bearer dev-token-1" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "name": "Button Copy Test",
-       "description": "Landing page CTA experiment",
-       "variants": [
-         { "key": "control", "allocation_percent": 50, "metadata": {"copy": "Buy now"} },
-         { "key": "treatment", "allocation_percent": 50, "metadata": {"copy": "Get started"} }
-       ]
-     }' \
-     http://localhost:8000/experiments
+curl -X POST http://localhost:8000/experiments \
+  -H "Authorization: Bearer dev-token-1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "CTA Test",
+    "description": "Homepage CTA experiment",
+    "variants": [
+      {"key": "control", "allocation_percent": 50, "metadata": {}},
+      {"key": "treatment", "allocation_percent": 50, "metadata": {}}
+    ]
+  }'
 ```
 
-Response includes experiment ID and variants.
+**Response**: `201 Created`
 
-### Get User Assignment (Idempotent)
+### Get User Assignment
+`GET /experiments/{id}/assignment/{user_id}`
 
-`GET /experiments/{experiment_id}/assignment/{user_id}`
+- Idempotent
+- Deterministic once assigned
+- Respects experiment status
 
+**Example**:
 ```bash
-curl -H "Authorization: Bearer dev-token-1" \
-     http://localhost:8000/experiments/<EXPERIMENT_ID>/assignment/user_123
+curl "http://localhost:8000/experiments/{experiment_id}/assignment/user123" \
+  -H "Authorization: Bearer dev-token-1"
 ```
 
-Repeat the request with the same `user_id` and experiment:
-- Same `variant_id`
-- Same `assigned_at`
+### Record Event
+`POST /events`
 
-Assignment is deterministic and persisted.
+Records an event for a user.
 
-## Assignment Logic
-
-Users are deterministically bucketed using:
-
-```python
-SHA256(experiment_id + user_id) % 100
+**Request**
+```bash
+curl -X POST http://localhost:8000/events \
+  -H "Authorization: Bearer dev-token-1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "experiment_id": "<uuid>",
+    "user_id": "user123",
+    "type": "click",
+    "timestamp": "2025-01-01T00:00:00Z",
+    "properties": {
+      "button": "cta"
+    }
+  }'
 ```
 
-- Variants are selected based on cumulative traffic allocation
-- Database constraint ensures one assignment per (experiment_id, user_id)
-- Concurrent race conditions are safely handled
+### Get Experiment Results
+`GET /experiments/{id}/results`
 
-This guarantees:
-- Idempotency
-- Stable assignments
-- Correct traffic distribution
+**Query Parameters**:
+- `event_type` (optional)
+- `start` / `end` (optional ISO timestamps)
+- `group_by` (variant, day — extensible)
 
-## Data Model Overview
+**Example**:
+```bash
+curl "http://localhost:8000/experiments/{experiment_id}/results?event_type=click" \
+  -H "Authorization: Bearer dev-token-1"
+```
 
-- `experiments`: experiment metadata
-- `variants`: experiment variants with allocation
-- `assignments`: user -> variant mapping
-- `events`: user events (used later for results)
+### Stop Experiment
+`POST /experiments/{id}/status`
 
-All tables are indexed for common access patterns.
+Stops an experiment and freezes new assignments.
 
-## Design Decisions & Trade-Offs
+**Request**
+```bash
+curl -X POST http://localhost:8000/experiments/{id}/status \
+  -H "Authorization: Bearer dev-token-1" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "stopped"}'
+```
 
-### Why deterministic hashing?
-- Enables idempotency without needing pre-reads
-- Prevents assignment drift
-- Scales horizontally
+**Behavior**:
+- Existing assignments remain valid
+- New assignments are rejected with `409 Conflict`
 
-### Why Postgres + Alembic?
-- Realistic production choice
-- Strong transactional guarantees
-- Clean migration history
+## Architecture
 
-### Why separate service layer?
-- Keeps routers thin
-- Enables easy unit testing
-- Clear separation of concerns
+```
+FastAPI
+ ├── Routers (experiments, events)
+ ├── Services
+ │   ├── assignment logic
+ │   ├── results aggregation
+ │   └── assignment cache
+ ├── SQLAlchemy ORM
+ ├── PostgreSQL
+ └── Alembic migrations
+```
 
-## How This Would Scale in Production
+- FastAPI for clear, typed API boundaries
+- SQLAlchemy ORM for explicit query control
+- Alembic for schema migrations
+- Docker Compose for reproducible local setup
 
-- Move event ingestion to async pipeline (Kafka/SQS)
-- Add Redis for assignment caching
-- Precompute experiment rollups
-- Add statistical significance calculations
-- Introduce feature flag unification
-- Shard events by experiment_id
+## Data Model
 
-## Next Feature to Implement
+Core tables:
+- experiments
+- variants
+- assignments
+- events
 
-Results endpoint (`GET /experiments/{id}/results`)
+Key properties:
+- Composite uniqueness on (experiment_id, user_id) for assignments
+- Time-based indexing for event queries
+- All attribution joins enforce event.timestamp >= assignment.assigned_at
 
-Would include:
-- Only events after assignment time
-- Per-variant metrics
-- Time-window filtering
-- Optional statistical significance
+## Authentication
 
-## Notes for Reviewers
+All endpoints require Bearer token authentication.
 
-- Focused on correctness and clarity over surface area
-- All core constraints in the prompt are met
-- Code is intentionally straightforward and readable
-- Dockerized for 1-command setup
+Tokens are configured via environment variable:
+```
+API_TOKENS=dev-token-1,dev-token-2
+```
+
+Invalid or missing tokens return `401 Unauthorized`.
+
+## Testing
+
+Tests are written with pytest and FastAPI's TestClient.
+
+Covered behaviors:
+- Assignment idempotency
+- Event attribution only after assignment
+- Experiment stop freezes new assignments
+
+Run tests:
+```bash
+docker compose exec api pytest -q
+```
+
+## Design Decisions & Tradeoffs
+
+- **Events require assignment**: Prevents orphan events and simplifies attribution logic
+- **Post-assignment filtering in results**: Attribution is enforced even if events are backfilled
+- **In-memory TTL cache**: Reduces DB load while keeping correctness via invalidation on experiment stop
+- **Explicit stop behavior**: Experiment lifecycle is a first-class concept, not an afterthought
+
+## Future Improvements
+
+- Add more sophisticated statistical analysis (p-values, confidence intervals)
+- Implement experiment analysis UI
+- Add support for feature flags
+- Add rate limiting and request validation
+- Implement more granular permissions system

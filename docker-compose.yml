@@ -1,4 +1,3 @@
-
 services:
   db:
     image: postgres:16
@@ -15,13 +14,17 @@ services:
     build: .
     environment:
       DATABASE_URL: postgresql+psycopg://ab:ab@db:5432/ab
+      TEST_DATABASE_URL: postgresql+psycopg://ab:ab@db:5432/ab
       API_TOKENS: dev-token-1,dev-token-2
+      PYTHONPATH: /app
     ports:
       - "8000:8000"
     depends_on:
       - db
     volumes:
       - ./:/app
+    # Optional but nice: run with autoreload for dev
+    # command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 volumes:
   pgdata:

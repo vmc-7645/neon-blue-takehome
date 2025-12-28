@@ -3,12 +3,14 @@ from fastapi.responses import JSONResponse
 from fastapi import status
 from app.auth import require_bearer_token
 from app.routers.experiments import router as experiments_router
-
+from app.routers.events import router as events_router
 
 app = FastAPI(title="Experimentation API", version="0.1.0")
 
-# Include experiment api routers
+# Include experiment and event api routers
 app.include_router(experiments_router)
+app.include_router(events_router)
+
 
 # Global auth: every request must include Bearer token
 @app.middleware("http")
