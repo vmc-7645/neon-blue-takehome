@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
+
+
+ExperimentStatus = Literal["running", "stopped"]
+
+
+class ExperimentStatusUpdate(BaseModel):
+    status: ExperimentStatus = Field(..., description="Experiment status: running|stopped")
 
 
 class VariantCreate(BaseModel):
