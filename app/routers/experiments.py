@@ -267,12 +267,12 @@ def experiment_results(
     ),
     group_by: str = Query(
         default="variant",
-        regex="^(variant|day|hour)$",
+        pattern="^(variant|day|hour)$",
         description="Group results by variant, day, or hour"
     ),
     attribution: str = Query(
         default="unique_users",
-        regex="^(unique_users|event_count)$",
+        pattern="^(unique_users|event_count)$",
         description="Attribution model: count unique users or total events"
     ),
     control_key: Optional[str] = Query(
