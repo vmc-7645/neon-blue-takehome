@@ -14,7 +14,7 @@ from app.db import get_db
 from app.models import Experiment, Variant, Assignment
 from app.schemas import ExperimentCreate, ExperimentOut, AssignmentOut, ExperimentResultsOut, ExperimentStatusUpdate
 from app.services.assignment import get_or_create_assignment
-from app.services.assignment_cache import get_cached, set_cached, CachedAssignment
+from app.services.assignment_cache import get_cached, set_cached, invalidate_experiment, CachedAssignment
 from app.services.results import ResultsQuery, get_experiment_results
 
 router = APIRouter(prefix="/experiments", tags=["experiments"])
