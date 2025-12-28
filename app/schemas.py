@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 ExperimentStatus = Literal["running", "stopped"]
@@ -58,9 +58,7 @@ class VariantOut(BaseModel):
     # ORM field is meta (DB column name "metadata")
     metadata: Dict[str, Any] = Field(alias="meta")
 
-    class Config:
-        from_attributes = True
-        populate_by_name = True
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class ExperimentOut(BaseModel):
@@ -71,8 +69,7 @@ class ExperimentOut(BaseModel):
     created_at: datetime
     variants: List[VariantOut]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class AssignmentOut(BaseModel):
     experiment_id: UUID
@@ -123,6 +120,5 @@ class EventOut(BaseModel):
     timestamp: datetime
     properties: Dict[str, Any]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
